@@ -8,9 +8,14 @@ FORWARD_PORTS := 4243
 
 
 
-.PHONY: up ssh-config
+.PHONY: up ssh-config test
 
-up:
+info :
+	@echo "CORES=${VAGRANT_CORES} RAM=${VAGRANT_RAM} BOXNAME=${VAGRANT_BOXNAME}"
+	@echo "FORWARD_DOCKER_PORTS=${FORWARD_DOCKER_PORTS} FORWARD_PORTS=${FORWARD_PORTS}"
+
+
+up: info
 	vagrant up
 
 ssh-config:

@@ -1,9 +1,9 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-BOX_NAME = ENV['BOX_NAME'] || "ubuntu"
+BOX_NAME = ENV['BOX_NAME'] || "ubuntu_precise_14_01"
 BOX_URI = ENV['BOX_URI'] || "http://files.vagrantup.com/precise64.box"
-VF_BOX_URI = ENV['BOX_URI'] || "http://files.vagrantup.com/precise64_vmware_fusion.box"
+VF_BOX_URI = ENV['BOX_URI'] || "https://oss-binaries.phusionpassenger.com/vagrant/boxes/latest/ubuntu-14.04-amd64-vmwarefusion.box"
 AWS_BOX_URI = ENV['BOX_URI'] || "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
 AWS_REGION = ENV['AWS_REGION'] || "us-east-1"
 AWS_AMI = ENV['AWS_AMI'] || "ami-69f5a900"
@@ -15,15 +15,15 @@ PRIVATE_NETWORK = ENV['PRIVATE_NETWORK']
 # See http://docs.docker.io/en/latest/use/port_redirection/ for more
 # $ FORWARD_DOCKER_PORTS=1 vagrant [up|reload]
 FORWARD_DOCKER_PORTS = ENV['FORWARD_DOCKER_PORTS']
-VAGRANT_RAM = ENV['VAGRANT_RAM'] || 1024
-VAGRANT_CORES = ENV['VAGRANT_CORES'] || 4
+VAGRANT_RAM = ENV['VAGRANT_RAM'] || "2048"
+VAGRANT_CORES = ENV['VAGRANT_CORES'] || "4"
 VAGRANT_BOXNAME = ENV['VAGRANT_BOXNAME'] || "docker1"
 VAGRANT_ANNOTATION = ENV['VAGRANT_ANNOTATION'] || "docker host"
 
 # You may also provide a comma-separated list of ports
 # for Vagrant to forward. For example:
 # $ FORWARD_PORTS=8080,27017 vagrant [up|reload]
-FORWARD_PORTS = ENV['FORWARD_PORTS']
+FORWARD_PORTS = ENV['FORWARD_PORTS'] || "4243"
 
 # A script to upgrade from the 12.04 kernel to the raring backport kernel (3.8)
 # and install docker.
@@ -34,6 +34,11 @@ user="$1"
 if [ -z "$user" ]; then
     user=vagrant
 fi
+
+
+# use local mirror for apt
+sed -i 's/us\./gb\./g' /etc/apt/sources.list
+
 
 # Enable memory cgroup and swap accounting
 sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"/g' /etc/default/grub
@@ -63,28 +68,28 @@ echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock $DOCKER_OPTS"' >> /etc/default
 
 usermod -a -G docker "$user"
 
-tmp=`mktemp -q` && {
+#tmp=`mktemp -q` && {
     # Only install the backport kernel, don't bother upgrading if the backport is
     # already installed.  We want parse the output of apt so we need to save it
     # with 'tee'.  NOTE: The installation of the kernel will trigger dkms to
     # install vboxguest if needed.
-    apt-get install -q -y --no-upgrade linux-image-generic-lts-raring | \
-        tee "$tmp"
+##    apt-get install -q -y --no-upgrade linux-image-generic-lts-raring | \
+##        tee "$tmp"
 
     # Parse the number of installed packages from the output
-    NUM_INST=`awk '$2 == "upgraded," && $4 == "newly" { print $3 }' "$tmp"`
-    rm "$tmp"
-}
+#    NUM_INST=`awk '$2 == "upgraded," && $4 == "newly" { print $3 }' "$tmp"`
+#    rm "$tmp"
+#}
 
 # If the number of installed packages is greater than 0, we want to reboot (the
 # backport kernel was installed but is not running).
-if [ "$NUM_INST" -gt 0 ];
-then
-    echo "Rebooting down to activate new kernel."
-    echo "/vagrant will not be mounted.  Use 'vagrant halt' followed by"
-    echo "'vagrant up' to ensure /vagrant is mounted."
+##if [ "$NUM_INST" -gt 0 ];
+##then
+##    echo "Rebooting down to activate new kernel."
+##    echo "/vagrant will not be mounted.  Use 'vagrant halt' followed by"
+##    echo "'vagrant up' to ensure /vagrant is mounted."
     shutdown -r now
-fi
+##fi
 SCRIPT
 
 # We need to install the virtualbox guest additions *before* we do the normal
