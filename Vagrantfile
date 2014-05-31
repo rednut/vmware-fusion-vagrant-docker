@@ -10,6 +10,8 @@ AWS_AMI = ENV['AWS_AMI'] || "ami-69f5a900"
 AWS_INSTANCE_TYPE = ENV['AWS_INSTANCE_TYPE'] || 't1.micro'
 SSH_PRIVKEY_PATH = ENV['SSH_PRIVKEY_PATH']
 PRIVATE_NETWORK = ENV['PRIVATE_NETWORK']
+APT_CACHER = ENV['APT_CACHER']
+
 
 # Boolean that forwards the Docker dynamic ports 49000-49900
 # See http://docs.docker.io/en/latest/use/port_redirection/ for more
@@ -33,6 +35,12 @@ $script = <<SCRIPT
 user="$1"
 if [ -z "$user" ]; then
     user=vagrant
+fi
+
+if [[ "x$APT_CACHER" == "x" ]]; then
+  [[ -f /etc/apt/apt.conf.d/01proxy ]] && rm -v /etc/apt/apt.conf.d/01proxy
+case
+  echo "Acquire::http {};" > /etc/apt/apt.conf.d/01proxy
 fi
 
 
@@ -176,7 +184,6 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
   end
 
   config.vm.provider :vmware_fusion do |f, override|
-    override.vm.gui = false
     override.vm.box_url = VF_BOX_URI
     override.vm.synced_folder "./", "/vagrant"
     override.vm.synced_folder "data/", "/data"
