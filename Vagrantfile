@@ -21,7 +21,7 @@ VAGRANT_RAM = ENV['VAGRANT_RAM'] || "2048"
 VAGRANT_CORES = ENV['VAGRANT_CORES'] || "4"
 VAGRANT_BOXNAME = ENV['VAGRANT_BOXNAME'] || "docker1"
 VAGRANT_ANNOTATION = ENV['VAGRANT_ANNOTATION'] || "docker host"
-§
+
 # You may also provide a comma-separated list of ports
 # for Vagrant to forward. For example:
 # $ FORWARD_PORTS=8080,27017 vagrant [up|reload]
@@ -45,10 +45,14 @@ if [ ! -d "/vagrant/data" ]; then
   echo "MISSING: /vagrant/data"; 
   exit 1
 fi
-if [ ! -f "/data/.empty" || ! -f "/vagrant/data/.empty" ]; then
-  echo "MISSING .empty file in /data and /vagrant"
-  exit 1
-fi
+
+[[ ! -f "/data/.empty" ]] && \
+  echo "MISSING: /data/.empty file" || exit 1
+
+
+[[ ! -f "/vagrant/data/.empty" ]] && \
+  echo "MISSING /vagrant/.empty file " || exit 1
+
 
 mount
 ls -la /
@@ -172,7 +176,7 @@ Vagrant::Config.run do |config|
   # Setup virtual machine box. This VM configuration code is always executed.
   config.vm.box = BOX_NAME
   config.vm.box_url = BOX_URI
-  config.vm.hostname = VAGRANT_BOXNAME
+  config.vm.host_name = VAGRANT_BOXNAME
 
   # Use the specified private key path if it is specified and not empty.
   if SSH_PRIVKEY_PATH
