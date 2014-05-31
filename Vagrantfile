@@ -37,7 +37,7 @@ fi
 
 
 # use local mirror for apt
-sed -i 's/us\./gb\./g' /etc/apt/sources.list
+sed -i 's#//us\.#//gb\.#g' /etc/apt/sources.list
 
 
 # Enable memory cgroup and swap accounting
