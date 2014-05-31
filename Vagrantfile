@@ -30,6 +30,7 @@ FORWARD_PORTS = ENV['FORWARD_PORTS'] || "4243"
 # A script to upgrade from the 12.04 kernel to the raring backport kernel (3.8)
 # and install docker.
 $script = <<SCRIPT
+
 # The username to add to the docker group will be passed as the first argument
 # to the script.  If nothing is passed, default to "vagrant".
 user="$1"
@@ -37,21 +38,35 @@ if [ -z "$user" ]; then
     user=vagrant
 fi
 
-if [ ! -d "/vagrant" ]; then
-  echo "MISSING /vagrant"; 
-  exit 1
-fi
-if [ ! -d "/vagrant/data" ]; then
-  echo "MISSING: /vagrant/data"; 
-  exit 1
-fi
+function die { 
+  local exitcode=${$1:-1}; shift ;  echo "ERROR: $@" ; exit $exitcode}
+function isdir { 
+  local exitcode=${$1:-1}; shift;  [[ -d "$1" ]] || die 1 "ERROR: not a directory: $1" }
+function isfile {  
+  [[ -f "$1" ]] || { echo "ERROR: not a file: $1" ; exit 1 ; } }
 
-[[ ! -f "/data/.empty" ]] && \
-  echo "MISSING: /data/.empty file" || exit 1
+# to get the mount points to show data, restart vmware toolls services
+umount /data /vagrant || die 99 "ERROR: unable to unmount shared folder"
+/etc/vmware-tools/services.sh restart || die 98 "ERROR: cannot restartvmware services"
+mount -t vmhgfs .host:/-vagrant /vagrant || die 97 "ERROR: cannot mount /vagrant"
+mount -t vmhgfs .host:/-data /data || die 96 "ERROR: cannot mount /data"
+
+isdir /vagrant
+isfile /vagrant/.empty
+isdir /vagrant/data
+isfile /vagrant/data/.empty
+isdir /data
+isfile /data/.empty
+isdir /vagrant/scripts
+isfile /vagrant/scripts/netif.functions.sh
 
 
-[[ ! -f "/vagrant/data/.empty" ]] && \
-  echo "MISSING /vagrant/.empty file " || exit 1
+#[[ ! -d "/vagrant" ]] || { echo "MISSING /vagrant"; exit 1 }
+#[[ ! -f "/vagrant/.empty" ]] || { echo "Missing /vagrant/.empty file"; exit 1 }
+#[[ ! -d "/vagrant/data" ]] || { echo "MISSING: /vagrant/data";  exit 1 }
+#[[ ! -f "/vagrant/data/.empty" ]] || { echo "Missing: /vagrant/data/.empty file";  exit 1 }
+##[[ ! -f "/data/.empty" ]] || { echo "MISSING: /data/.empty file" ; exit 1 }
+#[[ ! -f "/vagrant/scripts/netif.functions.sh" ]] || { echo "Missing"}
 
 
 mount
@@ -59,10 +74,6 @@ ls -la /
 ls -la /vagrant
 ls -la /data
 
-if [ -f /vagrant/scripts/netif.functions.sh ]; then
-  echo "cannot find /vagrant/scripts/netif.functions.sh"
-  exit 1
-fi
 
 source /vagrant/scripts/netif.functions.sh
 
