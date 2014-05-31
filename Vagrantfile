@@ -39,8 +39,8 @@ fi
 
 if [[ "x$APT_CACHER" == "x" ]]; then
   [[ -f /etc/apt/apt.conf.d/01proxy ]] && rm -v /etc/apt/apt.conf.d/01proxy
-case
-  echo "Acquire::http {};" > /etc/apt/apt.conf.d/01proxy
+else
+  echo "Acquire::http { Proxy \"$APT_CACHER\"; };" > /etc/apt/apt.conf.d/01proxy
 fi
 
 
