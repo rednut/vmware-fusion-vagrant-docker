@@ -31,6 +31,11 @@ FORWARD_PORTS = ENV['FORWARD_PORTS'] || "4243"
 # and install docker.
 $script = <<SCRIPT
 
+export DEBIAN_FRONTEND=noninteractive
+export DOCKER_PORT=4243
+
+
+
 # The username to add to the docker group will be passed as the first argument
 # to the script.  If nothing is passed, default to "vagrant".
 user="$1"
@@ -38,64 +43,72 @@ if [ -z "$user" ]; then
     user=vagrant
 fi
 
-function die { 
-  local exitcode=${$1:-1}; shift ;  echo "ERROR: $@" ; exit $exitcode}
-function isdir { 
-  local exitcode=${$1:-1}; shift;  [[ -d "$1" ]] || die 1 "ERROR: not a directory: $1" }
-function isfile {  
-  [[ -f "$1" ]] || { echo "ERROR: not a file: $1" ; exit 1 ; } }
+function die { local exitcode=$1; shift ; echo "ERROR:$ec: $@" ; exit $ec ; }
+function isdir  { local dir="$1"; shift ;  [[ -d "$dir" ]] || return 43 ; }
+####|| die 43 "NOT A DIRECTORY: $dir" ; } 
+function isfile { local file="$1"; shift ; [[ -f "$file" ]] || return 42 ; }
+###die 42 "NOT A FILE: $file" ; }
+function ismounted { local mp="$1"; shift ; echo "checking_mount:$mnt"; mount|grep "$mp" || return 44 ; }
 
-# to get the mount points to show data, restart vmware toolls services
-umount /data /vagrant || die 99 "ERROR: unable to unmount shared folder"
-/etc/vmware-tools/services.sh restart || die 98 "ERROR: cannot restartvmware services"
-mount -t vmhgfs .host:/-vagrant /vagrant || die 97 "ERROR: cannot mount /vagrant"
-mount -t vmhgfs .host:/-data /data || die 96 "ERROR: cannot mount /data"
+echo "-----\n\n\n";
+mount 
+echo "-----\n\n\n\";
 
-isdir /vagrant
-isfile /vagrant/.empty
-isdir /vagrant/data
-isfile /vagrant/data/.empty
-isdir /data
-isfile /data/.empty
-isdir /vagrant/scripts
-isfile /vagrant/scripts/netif.functions.sh
+# check /vagrant directy is present and if  mounted unmount it
+isdir /vagrant || die 42 "/vagrant is not a directory"
+isdir /data    || die 42 "/data is not a directory"
 
+# unmount all vmhgfs mounts
+umount -t vmhgfs -a -v || die 61 "problem performing umount of vmhgfs mounts"
 
-#[[ ! -d "/vagrant" ]] || { echo "MISSING /vagrant"; exit 1 }
-#[[ ! -f "/vagrant/.empty" ]] || { echo "Missing /vagrant/.empty file"; exit 1 }
-#[[ ! -d "/vagrant/data" ]] || { echo "MISSING: /vagrant/data";  exit 1 }
-#[[ ! -f "/vagrant/data/.empty" ]] || { echo "Missing: /vagrant/data/.empty file";  exit 1 }
-##[[ ! -f "/data/.empty" ]] || { echo "MISSING: /data/.empty file" ; exit 1 }
-#[[ ! -f "/vagrant/scripts/netif.functions.sh" ]] || { echo "Missing"}
+# double check we have /data and /vagrant unmounted
+ismounted /vagrant \
+  && { die 99 "still mounted: /vagrant" ; } \
+  || echo "/vagrant is not mounted"
+ismounted /data \
+  && { die 99 "still mounted: /data" ; } \
+  || echo "/data is not mounted"
 
 
-mount
-ls -la /
-ls -la /vagrant
-ls -la /data
+# restart vmware services
+/etc/vmware-tools/services.sh restart || die 98 "cannot restartvmware services"
 
+# remount shared dirs
+mount -t vmhgfs .host:/-vagrant /vagrant || die 97 "cannot mount /vagrant"
+mount -t vmhgfs .host:/-data /data || die 96 "cannot mount /data"
 
+# check sanity
+isfile /vagrant/.empty || die 46 "no data in /vagrant shared mount after vmware tools restart" 
+isfile /data/.empty    || die 46 "no data in /data shared vmhgfs mount"
+
+# check access to scritps dir
+isdir /vagrant/scripts \
+  || die 42 "/vagrant/scripts directory is missing"
+isfile /vagrant/scripts/netif.functions.sh \
+      || die 42 "netif.functions.sh is missing from /vagrant/scripts"
+
+# include common util funcs
 source /vagrant/scripts/netif.functions.sh
 
-
-
-
-[[ -f /etc/apt/apt.conf.d/01proxy ]] && rm -v /etc/apt/apt.conf.d/01proxy
-
-
-[[ ! -z "#{APT_CACHER}" ]] && \
-  echo 'Acquire::http { Proxy "#{APT_CACHER}"; };' | \
-  tee -a /etc/apt/apt.conf.d/01proxy
-
-echo 'APT-CACHER =\" #{APT_CACHER}'
-
+# if we have ENV[APT_CACHER] set then use it
+APT_PROXY_FILE=/etc/apt/apt.conf.d/01proxy
+[[ ! -z "#{APT_CACHER}" ]] \
+  && { echo "APT_CACHER_PROXY=#{APT_CACHER}" ; \
+       echo 'Acquire::http { Proxy "#{APT_CACHER}"; };'  > "$APT_PROXY_FILE"; } \
+  || { echo 'No APT CACHER PROXY ENV VAR SUPPLIED'; rm -vf "$APT_PROXY_FILE"; }
+  
 
 # use local mirror for apt
-sed -i 's#//us\.#//gb\.#g' /etc/apt/sources.list
-
+sed -i \
+    's#//us\.#//gb\.#g' \
+    /etc/apt/sources.list
 
 # Enable memory cgroup and swap accounting
-sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"/g' /etc/default/grub
+sed -i \
+      's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"/g' \
+      /etc/default/grub
+
+# update initial ramdisks
 update-grub
 
 # Adding an apt gpg key is idempotent.
@@ -104,11 +117,10 @@ apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 36A1D7869245C8950F966E9
 # Creating the docker.list file is idempotent, but it may overwrite desired
 # settings if it already exists.  This could be solved with md5sum but it
 # doesn't seem worth it.
-echo 'deb http://get.docker.io/ubuntu docker main' > \
-    /etc/apt/sources.list.d/docker.list
+echo 'deb http://get.docker.io/ubuntu docker main' > /etc/apt/sources.list.d/docker.list
 
 # Update remote package metadata.  'apt-get update' is idempotent.
-apt-get update -q
+apt-get  update -q -y
 
 # Install docker.  'apt-get install' is idempotent.
 apt-get install -q -y lxc-docker
@@ -117,8 +129,16 @@ apt-get install -q -y lxc-docker
 #sed -i 's/DOCKER_OPTS=$/DOCKER_OPTS=-H tcp:\/\/0.0.0.0:4243 -H unix:\/\/\/var\/run\/docker.sock/g' /etc/init/docker.conf
 #sed -i 's/DOCKER_OPTS=$/DOCKER_OPTS=-H tcp:\/\/0.0.0.0:4243 -H unix:\/\/\/var\/run\/docker.sock/g' /etc/init.d/docker
 
-echo 'DOCKER_OPTS="-H tcp://0.0.0.0:4243 $DOCKER_OPTS"' >> /etc/default/docker
-echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock $DOCKER_OPTS"' >> /etc/default/docker
+# set docker opts to listen on all if's port $DOCKER_PORT
+grep 'tcp://0.0.0.0:4243' /etc/default/docker \
+  || echo 'DOCKER_OPTS="-H tcp://0.0.0.0:4243 $DOCKER_OPTS"' >> /etc/default/docker
+
+# set docker listen to unit socket if not set
+grep 'unix://var/run/docker.dock' /etc/default/docker \
+  || echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock $DOCKER_OPTS"' >> /etc/default/docker
+
+cat /etc/default/docker
+die 42 bye
 
 usermod -a -G docker "$user"
 
@@ -139,24 +159,21 @@ usermod -a -G docker "$user"
 # backport kernel was installed but is not running).
 ##if [ "$NUM_INST" -gt 0 ];
 ##then
-    echo "Rebooting down to activate new kernel."
+#    echo "Rebooting down to activate new kernel."
 ##    echo "/vagrant will not be mounted.  Use 'vagrant halt' followed by"
 ##    echo "'vagrant up' to ensure /vagrant is mounted."
 
-    ip addr
-    ifconfig
+#    ip addr
+#    ifconfig
 
-    if-addr-writer \
-        "/data/state" \
-        eth0 \
-        docker 0
-
-    echo "pre-reboot"
-    shutdown -r now
+#    if-addr-writer \
+#        "/data/state" \
+#        eth0 \
+#        docker 0
 
 
-    echo "after-reboot"
-##fi
+
+
 SCRIPT
 
 # We need to install the virtualbox guest additions *before* we do the normal
