@@ -37,11 +37,15 @@ if [ -z "$user" ]; then
     user=vagrant
 fi
 
-if [[ "x$APT_CACHER" == "x" ]]; then
-  [[ -f /etc/apt/apt.conf.d/01proxy ]] && rm -v /etc/apt/apt.conf.d/01proxy
-else
-  echo "Acquire::http { Proxy \"$APT_CACHER\"; };" > /etc/apt/apt.conf.d/01proxy
-fi
+
+[[ -f /etc/apt/apt.conf.d/01proxy ]] && rm -v /etc/apt/apt.conf.d/01proxy
+
+
+[[ ! -z "#{APT_CACHER}" ]] && \
+  echo 'Acquire::http { Proxy "#{APT_CACHER}"; };' | \
+  tee -a /etc/apt/apt.conf.d/01proxy
+
+echo 'APT-CACHER =\" #{APT_CACHER}'
 
 
 # use local mirror for apt
