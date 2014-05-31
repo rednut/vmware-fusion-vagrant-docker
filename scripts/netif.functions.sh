@@ -15,14 +15,14 @@ function if-addr-writer {
 
 
   local BASE_DIR=$1; shift
-  [ -d "$BASE_DIR" ] || mkdir -p "$BAE_DIR" || \
+  [ -d "$BASE_DIR" ] || mkdir -p "$BASE_DIR" || \
 	die "cannot create MISSING BASE_DIR: $BASE_DIR"
 
   local INTERFACES="$@"
   [[ "x$INTERFACES" == "x" ]] && \
 	die "you must supply some interfaces"
 
-  local STATE_BASE_DIR="$BASE_DIR/state/$HOSTNAME"
+  local STATE_BASE_DIR="$BASE_DIR/$HOSTNAME"
   mkdir -p "$STATE_BASE_DIR" || \
 	die "cannot create STATE_BASE_DIR=$STATE_BASE_DIR"
 

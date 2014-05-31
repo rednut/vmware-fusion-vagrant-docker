@@ -55,6 +55,14 @@ ls -la /
 ls -la /vagrant
 ls -la /data
 
+if [ -f /vagrant/scripts/netif.functions.sh ]; then
+  echo "cannot find /vagrant/scripts/netif.functions.sh"
+  exit 1
+fi
+
+source /vagrant/scripts/netif.functions.sh
+
+
 
 
 [[ -f /etc/apt/apt.conf.d/01proxy ]] && rm -v /etc/apt/apt.conf.d/01proxy
@@ -123,8 +131,8 @@ usermod -a -G docker "$user"
     ip addr
     ifconfig
 
-    /vagrant/scripts/write-interface-addresses.sh \
-        /data/state \
+    if-addr-writer \
+        "/data/state" \
         eth0 \
         docker 0
 
