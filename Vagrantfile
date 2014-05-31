@@ -45,14 +45,9 @@ fi
 
 function die { local exitcode=$1; shift ; echo "ERROR:$ec: $@" ; exit $ec ; }
 function isdir  { local dir="$1"; shift ;  [[ -d "$dir" ]] || return 43 ; }
-####|| die 43 "NOT A DIRECTORY: $dir" ; } 
 function isfile { local file="$1"; shift ; [[ -f "$file" ]] || return 42 ; }
-###die 42 "NOT A FILE: $file" ; }
 function ismounted { local mp="$1"; shift ; echo "checking_mount:$mnt"; mount|grep "$mp" || return 44 ; }
 
-echo "-----\n\n\n";
-mount 
-echo "-----\n\n\n\";
 
 # check /vagrant directy is present and if  mounted unmount it
 isdir /vagrant || die 42 "/vagrant is not a directory"
