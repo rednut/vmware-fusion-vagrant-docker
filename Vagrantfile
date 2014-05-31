@@ -85,10 +85,16 @@ usermod -a -G docker "$user"
 # backport kernel was installed but is not running).
 ##if [ "$NUM_INST" -gt 0 ];
 ##then
-##    echo "Rebooting down to activate new kernel."
+    echo "Rebooting down to activate new kernel."
 ##    echo "/vagrant will not be mounted.  Use 'vagrant halt' followed by"
 ##    echo "'vagrant up' to ensure /vagrant is mounted."
+
+    ip addr
+    ifconfig
+
     shutdown -r now
+
+    echo "after-reboot"
 ##fi
 SCRIPT
 
@@ -170,8 +176,11 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
   end
 
   config.vm.provider :vmware_fusion do |f, override|
+    override.vm.gui = false
     override.vm.box_url = VF_BOX_URI
-    override.vm.synced_folder "./data", "/data", disabled: false
+    override.vm.synced_folder "./", "/vagrant"
+    override.vm.synced_folder "data/", "/data"
+    ##override.vm.synced_folder "./data", "/data", disabled: false
     override.vm.provision :shell, :inline => $script
     f.vmx["displayName"] = VAGRANT_BOXNAME
     f.vmx["memsize"] = VAGRANT_RAM
