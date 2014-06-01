@@ -133,7 +133,6 @@ grep 'unix://var/run/docker.dock' /etc/default/docker \
   || echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock $DOCKER_OPTS"' >> /etc/default/docker
 
 cat /etc/default/docker
-die 42 bye
 
 usermod -a -G docker "$user"
 
@@ -166,6 +165,12 @@ usermod -a -G docker "$user"
 #        eth0 \
 #        docker 0
 
+
+service docker restart
+
+ps -aux | grep docker
+ping -c3 8.8.8.8
+ifconfig eth0
 
 
 
@@ -230,7 +235,10 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
   config.vm.provider :aws do |aws, override|
     username = "ubuntu"
     override.vm.box_url = AWS_BOX_URI
-    override.vm.provision :shell, :inline => $script, :args => username
+##    override.vm.provision :shell, :inline => $script, :args => username
+    override.vm.provision :shell, :path => "provisioning/providers/aws.sh", :args => username
+    override.vm.provision :shell, :path => "provisioning/dockerhost.sh", :args => username
+
     aws.access_key_id = ENV["AWS_ACCESS_KEY"]
     aws.secret_access_key = ENV["AWS_SECRET_KEY"]
     aws.keypair_name = ENV["AWS_KEYPAIR_NAME"]
@@ -241,7 +249,9 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
   end
 
   config.vm.provider :rackspace do |rs, override|
-    override.vm.provision :shell, :inline => $script
+ #   override.vm.provision :shell, :inline => $script
+    override.vm.provision :shell, :path => "provisioning/providers/rackspace.sh"
+    override.vm.provision :shell, :path => "provisioning/dockerhost.sh"
     rs.username = ENV["RS_USERNAME"]
     rs.api_key  = ENV["RS_API_KEY"]
     rs.public_key_path = ENV["RS_PUBLIC_KEY"]
@@ -255,6 +265,8 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     override.vm.synced_folder "data/", "/data"
     ##override.vm.synced_folder "./data", "/data", disabled: false
     override.vm.provision :shell, :inline => $script
+    override.vm.provision :shell, :path => "provisioning/providers/vmware_fusion.sh"
+    override.vm.provision :shell, :path => "provisioning/dockerhost.sh"
     f.vmx["displayName"] = VAGRANT_BOXNAME
     f.vmx["memsize"] = VAGRANT_RAM
     f.vmx["numvcpus"] = VAGRANT_CORES
@@ -262,7 +274,9 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
   end
 
   config.vm.provider :virtualbox do |vb, override|
-    override.vm.provision :shell, :inline => $vbox_script
+    #override.vm.provision :shell, :inline => $vbox_script
+    override.vm.provision :shell, :path => "provisioning/providers/virtualbox.sh"
+    override.vm.provision :shell, :path => "provisioning/dockerhost.sh"
     vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
     vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
     vb.customize ["modifyvm", :id, "--memory", VAGRANT_RAM]
