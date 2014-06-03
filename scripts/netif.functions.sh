@@ -22,15 +22,15 @@ function if-addr-writer {
   [[ "x$INTERFACES" == "x" ]] && \
 	die "you must supply some interfaces"
 
-  local STATE_BASE_DIR="$BASE_DIR/$HOSTNAME"
-  mkdir -p "$STATE_BASE_DIR" || \
-	die "cannot create STATE_BASE_DIR=$STATE_BASE_DIR"
+  #local STATE_BASE_DIR="$BASE_DIR/"
+  #mkdir -p "$STATE_BASE_DIR" || \
+  #	die "cannot create STATE_BASE_DIR=$STATE_BASE_DIR"
 
-  local IF_FILE="$STATE_BASE_DIR/interfaces"
+  local IF_FILE="$BASE_DIR/interfaces"
 
   if [[ "$VERBOSE" -gt 0 ]]; then
     echo "HOSTNAME:          $HOSTNAME"
-    echo "STATE_BASE_DIR:    $STATE_BASE_DIR"
+    echo "STATE_BASE_DIR:    $BASE_DIR"
     echo "INTERFACES_FILE:   $IF_FILE"
     echo "INTERFACES:        $INTERFACES"
    fi
@@ -41,17 +41,23 @@ function if-addr-writer {
 	die "cannot create $IF_FILE"
 
 
-  for interface in INTERFACES; do
+  for interface in $INTERFACES; do
+        
+        # file to store address of interface
+  	local IF_ADDR_FILE="$BASE_DIR/$interface"
+        touch $IF_ADDR_FILE;
 
-	address="$(int-ip \"$interface\")"
 
+        # ip of interafce
+	local address=$(int-ip $interface)
+        
 	# store if in the interfaces file
-	echo "$interface" >> "$IF_FILE"
+        echo "$address" > $IF_ADDR_FILE;
 
-	IF_ADDR_FILE="$STATE_BASE_DIR/$interface"
+        # add interface to list file
+	echo "$interface" >> $IF_FILE
+   	
 	
-	echo "$address" > "$IF_ADDR_FILE"
-
 	echo "$interface=$address"
 
     #	echo "$IF_ADDR_FILE: $interface=$address"

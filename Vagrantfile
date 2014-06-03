@@ -30,10 +30,17 @@ FORWARD_PORTS = ENV['FORWARD_PORTS'] || "4243"
 # A script to upgrade from the 12.04 kernel to the raring backport kernel (3.8)
 # and install docker.
 $script = <<SCRIPT
+set -e
+set -x
+
 
 export DEBIAN_FRONTEND=noninteractive
 export DOCKER_PORT=4243
+export APT_CACHER="#{APT_CACHER}"
 
+# include common util funcs
+source /vagrant/scripts/netif.functions.sh
+source /vagrant/scripts/common.functions.sh
 
 
 # The username to add to the docker group will be passed as the first argument
@@ -43,15 +50,10 @@ if [ -z "$user" ]; then
     user=vagrant
 fi
 
-function die { local exitcode=$1; shift ; echo "ERROR:$ec: $@" ; exit $ec ; }
-function isdir  { local dir="$1"; shift ;  [[ -d "$dir" ]] || return 43 ; }
-function isfile { local file="$1"; shift ; [[ -f "$file" ]] || return 42 ; }
-function ismounted { local mp="$1"; shift ; echo "checking_mount:$mnt"; mount|grep "$mp" || return 44 ; }
-
 
 # check /vagrant directy is present and if  mounted unmount it
 isdir /vagrant || die 42 "/vagrant is not a directory"
-isdir /data    || die 42 "/data is not a directory"
+#isdir /data    || die 42 "/data is not a directory"
 
 # unmount all vmhgfs mounts
 umount -t vmhgfs -a -v || die 61 "problem performing umount of vmhgfs mounts"
@@ -60,9 +62,9 @@ umount -t vmhgfs -a -v || die 61 "problem performing umount of vmhgfs mounts"
 ismounted /vagrant \
   && { die 99 "still mounted: /vagrant" ; } \
   || echo "/vagrant is not mounted"
-ismounted /data \
-  && { die 99 "still mounted: /data" ; } \
-  || echo "/data is not mounted"
+#ismounted /data \
+#  && { die 99 "still mounted: /data" ; } \
+#  || echo "/data is not mounted"
 
 
 # restart vmware services
@@ -70,11 +72,11 @@ ismounted /data \
 
 # remount shared dirs
 mount -t vmhgfs .host:/-vagrant /vagrant || die 97 "cannot mount /vagrant"
-mount -t vmhgfs .host:/-data /data || die 96 "cannot mount /data"
+#mount -t vmhgfs .host:/-data /data || die 96 "cannot mount /data"
 
 # check sanity
 isfile /vagrant/.empty || die 46 "no data in /vagrant shared mount after vmware tools restart" 
-isfile /data/.empty    || die 46 "no data in /data shared vmhgfs mount"
+#isfile /data/.empty    || die 46 "no data in /data shared vmhgfs mount"
 
 # check access to scritps dir
 isdir /vagrant/scripts \
@@ -82,14 +84,11 @@ isdir /vagrant/scripts \
 isfile /vagrant/scripts/netif.functions.sh \
       || die 42 "netif.functions.sh is missing from /vagrant/scripts"
 
-# include common util funcs
-source /vagrant/scripts/netif.functions.sh
-
 # if we have ENV[APT_CACHER] set then use it
 APT_PROXY_FILE=/etc/apt/apt.conf.d/01proxy
-[[ ! -z "#{APT_CACHER}" ]] \
-  && { echo "APT_CACHER_PROXY=#{APT_CACHER}" ; \
-       echo 'Acquire::http { Proxy "#{APT_CACHER}"; };'  > "$APT_PROXY_FILE"; } \
+[[ ! -z "$APT_CACHER" ]] \
+  && { echo "APT_CACHER_PROXY=$APT_CACHER" ; \
+       echo 'Acquire::http { Proxy "$APT_CACHER"; };'  > "$APT_PROXY_FILE"; } \
   || { echo 'No APT CACHER PROXY ENV VAR SUPPLIED'; rm -vf "$APT_PROXY_FILE"; }
   
 
@@ -136,43 +135,37 @@ cat /etc/default/docker
 
 usermod -a -G docker "$user"
 
-#tmp=`mktemp -q` && {
-    # Only install the backport kernel, don't bother upgrading if the backport is
-    # already installed.  We want parse the output of apt so we need to save it
-    # with 'tee'.  NOTE: The installation of the kernel will trigger dkms to
-    # install vboxguest if needed.
-##    apt-get install -q -y --no-upgrade linux-image-generic-lts-raring | \
-##        tee "$tmp"
 
-    # Parse the number of installed packages from the output
-#    NUM_INST=`awk '$2 == "upgraded," && $4 == "newly" { print $3 }' "$tmp"`
-#    rm "$tmp"
-#}
+# create data directory for docker persistence for this host in
+mkdir -pv /vagrant/data/$HOSTNAME/docker/
+# ensure we can write to it
+chmod -Rv a+rwx /vagrant/data/$HOSTNAME/
 
-# If the number of installed packages is greater than 0, we want to reboot (the
-# backport kernel was installed but is not running).
-##if [ "$NUM_INST" -gt 0 ];
-##then
-#    echo "Rebooting down to activate new kernel."
-##    echo "/vagrant will not be mounted.  Use 'vagrant halt' followed by"
-##    echo "'vagrant up' to ensure /vagrant is mounted."
-
-#    ip addr
-#    ifconfig
-
-#    if-addr-writer \
-#        "/data/state" \
-#        eth0 \
-#        docker 0
+# sym link from vagrant mount for this host to /data
+ln -fs /vagrant/data/$HOSTNAME/ /data
+touch /data/.$HOSTNAME
 
 
+  # write network interface state
+  if-addr-writer \
+        "/data/state" \
+        eth0 \
+        docker0
+
+# restart docker
 service docker restart
 
+# show docker process
 ps -aux | grep docker
+
+# test connection to interweb
 ping -c3 8.8.8.8
+
 ifconfig eth0
-
-
+echo 
+echo "Docker has been provisioned!"
+echo
+echo "set you DOCKER_IP="`cat /data/state/eth0`
 
 SCRIPT
 
@@ -262,7 +255,7 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
   config.vm.provider :vmware_fusion do |f, override|
     override.vm.box_url = VF_BOX_URI
     override.vm.synced_folder "./", "/vagrant"
-    override.vm.synced_folder "data/", "/data"
+    #override.vm.synced_folder "data/", "/data"
     ##override.vm.synced_folder "./data", "/data", disabled: false
     override.vm.provision :shell, :inline => $script
     override.vm.provision :shell, :path => "provisioning/providers/vmware_fusion.sh"
