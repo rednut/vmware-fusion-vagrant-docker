@@ -65,7 +65,7 @@ instead of
 
 
 ## Example of running a mongodb with a [local] persistent data store
-
+i
 Pulldown a mongo docker image:
 
     dockr pull dockerfile/mongodb
@@ -74,6 +74,8 @@ Start new container running the mongodb:
 - as a daemon (-d)
 - map docker volume (-v) in vm folder /data/docker/mongodb to container path /data
 - map port (-p) 28017 on docker host to 28017 in container
+
+cmd:
 
     dockr run -d -v /data/docker/mongodb:/data -p 27017:27017 -p 28017:28017 dockerfile/mongodb
 
