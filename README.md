@@ -1,8 +1,8 @@
 # mac os-x vmware fusion vagrantfile to setup a docker host.
 
-This collection of files will help you to run docker on a vmware fusion guest. 
+This collection of files will help you to run docker on a vmware fusion guesti vm. 
 
-I have craeted this because boot2docker and friends dont work with fusion (for me)
+I have created this because boot2docker and friends dont work with vmware fusion (for me)
 
 
 Features:
@@ -28,17 +28,39 @@ git clone $REPO
 once finished vagrant status should show the box running
 grab from the output the docker guest vm ip address and export it 
 
-export DOCKER_IP=x.y.z.s
+    export DOCKER_IP=x.y.z.s
 
 we should then be able to see the guest dockerhost
 
 I set an alias up like
 
-alias dockr='docker -H tcp://$DOCKER_IP:4243'
+    alias dockr='docker -H tcp://$DOCKER_IP:4243'
 
 so i can just run 
 
-dockr command
+  dockr ps
+
+  docker -H tcp://$DOCKER_IP:4243 images
+
+
+
+
+** example of running a mongo with a [local] persistent data store
+
+Pulldown a mongo docker image:
+  dockr pull dockerfile/mongodb
+
+Start new container running the mongodb:
+- as a daemon (-d)
+- map docker volume (-v) in vm folder /data/docker/mongodb to container path /data
+- map port (-p) 28017 on docker host to 28017 in container
+  dockr run -d -v /data/docker/mongodb:/data -p 27017:27017 -p 28017:28017 dockerfile/mongodb
+
+This will map the mongodb database path to data/docker1/docker/mongodb
+  ls -l data/docker1/docker/mongodb
+
+You will be able to connect to the mongo database via address $DOCKER_IP on the ports that were mapped earlier
+
 
 
 
