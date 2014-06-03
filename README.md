@@ -21,43 +21,65 @@ Requirements:
 - docker client
 - vmware fusion
 
-git clone $REPO
+## Instructions
+
+Fetch Repo:
+
+    git clone github.com/rednut/vmware-fusion-vagrant-docker.git
+
+Launch a vmware fusion guest using Vagrant:
 
     BOXNAME=docker1 vagrant up --provider=vmware_fusion
 
-once finished vagrant status should show the box running
-grab from the output the docker guest vm ip address and export it 
+Once you finished, the vagrant status should show the box running:
+
+    vagrant status
+
+Grab from the output the vagrant provisoning the ip address of the new docker host and export it so we can use it
+later
+
+    echo "x.y.z.s" > ~/.docker-ip
+    export DOCKER_IP=`cat ~/.docker-ip`
+
+or
 
     export DOCKER_IP=x.y.z.s
 
-we should then be able to see the guest dockerhost
+We should then be able to talk to the docker daemon running in the vmware box aka the dockerhost:
 
-I set an alias up like
+    docker -H tcp://$DOCKERIP:4243 ps
+
+I like to setup a shell alias like:
 
     alias dockr='docker -H tcp://$DOCKER_IP:4243'
 
 so i can just run 
 
-  dockr ps
+    dockr ps
 
-  docker -H tcp://$DOCKER_IP:4243 images
+instead of
+
+    docker -H tcp://$DOCKER_IP:4243 images
 
 
 
 
-** example of running a mongo with a [local] persistent data store
+## Example of running a mongodb with a [local] persistent data store
 
 Pulldown a mongo docker image:
-  dockr pull dockerfile/mongodb
+
+    dockr pull dockerfile/mongodb
 
 Start new container running the mongodb:
 - as a daemon (-d)
 - map docker volume (-v) in vm folder /data/docker/mongodb to container path /data
 - map port (-p) 28017 on docker host to 28017 in container
-  dockr run -d -v /data/docker/mongodb:/data -p 27017:27017 -p 28017:28017 dockerfile/mongodb
+
+    dockr run -d -v /data/docker/mongodb:/data -p 27017:27017 -p 28017:28017 dockerfile/mongodb
 
 This will map the mongodb database path to data/docker1/docker/mongodb
-  ls -l data/docker1/docker/mongodb
+
+    ls -l data/docker1/docker/mongodb
 
 You will be able to connect to the mongo database via address $DOCKER_IP on the ports that were mapped earlier
 
